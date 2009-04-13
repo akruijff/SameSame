@@ -1,0 +1,19 @@
+samelink -A:
+test/file2a => test/file1a
+test/file3a => test/file1a
+
+samelink -Z:
+test/file2a => test/file3a
+test/file1a => test/file3a
+
+samelink -At:
+test/file3a => test/file1a
+test/file2a => test/file1a
+
+samelink -Zt:
+test/file3a => test/file2a
+test/file1a => test/file2a
+
+samelink -L:
+test/file1a => test/file2a
+test/file3a => test/file2a

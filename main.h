@@ -3,7 +3,7 @@
  * This is samefile driver. Programs can use this by including this source  *
  * file and implement the following functions:                              *
  * ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -11,14 +11,6 @@
 
 #ifndef AK_MAIN_H
 #define AK_MAIN_H
-
-#include <new>
-
-// #include <stdio.h>
-// #include <string.h>
-// #include <stdlib.h>
-// #include <limits.h>
-// #include <unistd.h>
 
 // #include "configure.h"
 // #include "toolkit.h"
@@ -31,6 +23,14 @@
 // #include "filegroup.h"
 // #include "sizegroup.h"
 #include "holder.h"
+
+// #include <stdio.h>
+// #include <string.h>
+// #include <stdlib.h>
+// #include <limits.h>
+// #include <unistd.h>
+
+#include <new>
 
 #define VERBOSE_LEVEL1		1
 #define VERBOSE_LEVEL2		2
@@ -75,13 +75,13 @@ int processOptions(
 	const char *version) throw();
 
 void processInput(Stats &stats,
-	int (&printFileCompare)(SizeGroup &parent, FileGroup &left,
-		Filename &leftChild, FileGroup &right, Filename &rightChild,
+	int (&printFileCompare)(const SizeGroup &, const FileGroup &,
+		const Filename &, const FileGroup &, const Filename &,
 		int result),
 	int (&selectResults)(int flags, const char *sep),
 	int (*preCheck)(const SizeGroup &,
-		const FileGroup &, const FileGroup &) = NULL);
+		const FileGroup &, const FileGroup &) = NULL) throw();
 
-void processStats(Stats &stats);
+void processStats(Stats &stats) throw();
 
 #endif // AK_MAIN_H

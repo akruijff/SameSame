@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -11,28 +11,37 @@
 
 #define CONTAINER_HASH		1
 #define CONTAINER_VECTOR	2
-
-#include <stddef.h>
+#define CONTAINER_SORTED	4
 
 #include "configure.h"
 #include "hash.h"
 
+#include <stddef.h>
+
 #ifdef DEBUG
-#include <stdio.h>
-#include <stdlib.h>
+#include "debug.h"
 #endif
 
+#include <new>
 
 template <class T>
 class Container
 {
+#ifdef DEBUG
+	size_t magic1;
+#endif // DEBUG
 	int mode;
 	T **arr;
 	size_t size, capacity, factor;
 	hash_t (*hashFunction)(const T &t);
+#ifdef DEBUG
+	size_t magic2;
+#endif // DEBUG
 
 public:
-	Container(unsigned int capacity = 1, float factor = .8);
+	Container(unsigned int capacity = 1, float factor = .8)
+	throw (std::bad_alloc);
+
 	~Container() throw();
 
 private:
@@ -47,25 +56,48 @@ public:
 	 * Returns the mode the container is in.
 	 */
 	int getMode() const throw()
+#ifndef DEBUG
 	{ return mode; }
+#else // DEBUG
+	{ checkMagic(magic1 | magic2, __FILE__, __LINE__); return mode; }
+#endif // DEBUG
 
 	/**
 	 * Gets the size
 	 */
 	size_t getSize() const throw()
+#ifndef DEBUG
 	{ return size; }
+#else // DEBUG
+	{ checkMagic(magic1 | magic2, __FILE__, __LINE__); return size; }
+#endif // DEBUG
 
 	/**
 	 * Gets the size
 	 */
 	size_t getCapacity() const throw()
+#ifndef DEBUG
 	{ return capacity; }
+#else // DEBUG
+	{ checkMagic(magic1 | magic2, __FILE__, __LINE__); return capacity; }
+#endif // DEBUG
+
+	/**
+	 * Sets the capacity, using the given variable unless the size of this
+	 * container is higher. The capacity will be a power of two.
+	 */
+	void setCapacity(size_t capacity) throw(std::bad_alloc);
 
 	/**
 	 * Gets the boundry for the mode of the container.
 	 */
 	size_t getBoundry() const throw()
+#ifndef DEBUG
 	{ return (mode == CONTAINER_VECTOR) ? size : capacity; }
+#else // DEBUG
+	{ checkMagic(magic1 | magic2, __FILE__, __LINE__);
+		return (mode == CONTAINER_VECTOR) ? size : capacity; }
+#endif // DEBUG
 
 	void setHashFunction(hash_t (*hashFunction)(const T &t)) throw()
 	{ this->hashFunction = hashFunction; }
@@ -102,6 +134,23 @@ public:
 	void deleteItems() throw();
 
 	/**
+	 * Fixes the items within the container after calls to deleteItem.
+	 */
+	void fix() throw();
+
+	/**
+	 * Deletes all items and reset the capacity of the container.
+	 */
+	void empty(size_t capacity = 4) throw(std::bad_alloc)
+#ifndef DEBUG
+	{ deleteItems(); setCapacity(capacity); }
+#else // DEBUG
+	{ checkMagic(magic1 | magic2, __FILE__, __LINE__);
+		deleteItems(); setCapacity(capacity);
+		checkMagic(magic1 | magic2, __FILE__, __LINE__); }
+#endif // DEBUG
+
+	/**
 	 * Converts the array to a vector and sort it.
 	 */
 	void sort(int (&cmp)(const void *a, const void *b)) throw();
@@ -119,14 +168,16 @@ public:
 	T *operator[](const size_t index) const throw()
 #ifndef DEBUG
 	{ return arr[index]; }
-#else
+#else // DEBUG
 	{
+		checkMagic(magic1 | magic2, __FILE__, __LINE__);
 		if (index >= capacity)
 		{
 			fprintf(stderr, "%s:%u %u >= %u\n",
 				__FILE__, __LINE__, index, capacity);
 			exit(EXIT_FAILURE);
 		}
+		checkMagic(magic1 | magic2, __FILE__, __LINE__);
 		return arr[index];
 	}
 #endif
@@ -137,14 +188,19 @@ public:
 	 */
 	int operator!=(const T &t) const throw();
 	int operator==(const T &t) const throw()
+#ifndef DEBUG
 	{ return !operator!=(t); }
+#else // DEBUG
+	{ checkMagic(magic1 | magic2, __FILE__, __LINE__);
+		return !operator!=(t); }
+#endif // DEBUG
 
 	/**
 	 * Adds object t to the container. Operators with objects as paramaters
 	 * will not function properly if objects are added that area equal (==)
 	 * to another object in the container.
 	 */
-	void operator+=(T &t);
+	void operator+=(T &t) throw (std::bad_alloc);
 
 	/**
 	 * Removes object t from the container. Operators with objects as
@@ -153,7 +209,7 @@ public:
 	 *
 	 * Returns a pointer to the object that was removed;
 	 */
-	T *operator-=(T &t);
+	T *operator-=(T &t) throw();
 };
 
 #endif // AK_CONTAINER_H

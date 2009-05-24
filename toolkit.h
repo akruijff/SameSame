@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+
+#include <new>
 
 #define FILE_OPEN1_ERROR		-1
 #define FILE_OPEN2_ERROR		-2
@@ -73,7 +75,7 @@ int digits(unsigned long number) throw();
  * @param eol - end of line
  */
 char *fgetline(char *&str, size_t &size, FILE *file, int eol = '\n',
-							char *pos = NULL);
+				char *pos = NULL) throw (std::bad_alloc);
 
 /**
  * Writes the size in a human friendly way to the stream out.

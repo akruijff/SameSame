@@ -1,124 +1,120 @@
 
-INSTALL     = /usr/bin/install -c -o root -g wheel
+CAT	= cat
+CP	= cp
+DIFF	= diff
+ECHO	= echo
+INSTALL	= install -c -o root -g wheel
+LN	= ln
+MKDIR	= mkdir
+RM	= rm
+SLEEP	= sleep
 
 all:	build
+build:	samefile samelink samearchive-lite samearchive
+test:	test-samefile test-samelink test-samearchive-lite \
+	test-samearchive
+install:
+	$(INSTALL) -m 0755 samefile samelink samearchive samearchive-lite \
+		$(DESTDIR)$(PREFIX)/bin/
+	$(INSTALL) -m 0644 samefile.1.gz samelink.1.gz samearchive.1.gz \
+		samearchive-lite.1.gz $(DESTDIR)$(PREFIX)/man/man1/
 
-build:		samefile samelink samearchive-lite samearchive
-test:		test-samefile test-samelink test-samearchive-lite \
-		test-samearchive
-install:	install-samefile install-samelink install-samearchive-lite \
-			install-samearchive
 clean:
-	@rm -rf *.o *core find test test2 test.out \
+	@${RM} -rf *.o *core test test2 test.out \
 		samefile samelink samearchive-lite samearchive
-
-# ----------------------------------------------------------------------
-install-samefile:			test-samefile
-	$(INSTALL) -m 0755 samefile $(DESTDIR)$(PREFIX)/bin/
-	$(INSTALL) -m 0644 samefile.1.gz $(DESTDIR)$(PREFIX)/man/man1/
-install-samelink:			test-samelink
-	$(INSTALL) -m 0755 samelink $(DESTDIR)$(PREFIX)/bin/
-	$(INSTALL) -m 0644 samelink.1.gz $(DESTDIR)$(PREFIX)/man/man1/
-install-samearchive:		test-samearchive
-	$(INSTALL) -m 0755 samearchive $(DESTDIR)$(PREFIX)/bin/
-	$(INSTALL) -m 0644 samearchive.1.gz $(DESTDIR)$(PREFIX)/man/man1/
-install-samearchive-lite:	test-samearchive-lite
-	$(INSTALL) -m 0755 samearchive-lite $(DESTDIR)$(PREFIX)/bin/
-	$(INSTALL) -m 0644 samearchive-lite.1.gz $(DESTDIR)$(PREFIX)/man/man1/
 
 # ----------------------------------------------------------------------
 
 test-samefile:	test-build samefile
-	@echo "Testing samefile"
-	@echo 'samefile -A:' > test.out
-	@find test | ./samefile -A >> test.out
-	@echo >> test.out
-	@echo 'samefile -Z:' >> test.out
-	@find test | ./samefile -Z >> test.out
-	@echo >> test.out
-	@echo 'samefile -At:' >> test.out
-	@find test | ./samefile -At >> test.out
-	@echo >> test.out
-	@echo 'samefile -Zt:' >> test.out
-	@find test | ./samefile -Zt >> test.out
-	@echo >> test.out
-	@echo 'samefile -L:' >> test.out
-	@find test | ./samefile -L >> test.out
-	@echo >> test.out
+	@${ECHO} "Testing samefile"
+	@${ECHO} 'samefile -A:' > test.out
+	@${CAT} test.lst | ./samefile -A >> test.out
+	@${ECHO} >> test.out
+	@${ECHO} 'samefile -Z:' >> test.out
+	@${CAT} test.lst | ./samefile -Z >> test.out
+	@${ECHO} >> test.out
+	@${ECHO} 'samefile -At:' >> test.out
+	@${CAT} test.lst | ./samefile -At >> test.out
+	@${ECHO} >> test.out
+	@${ECHO} 'samefile -Zt:' >> test.out
+	@${CAT} test.lst | ./samefile -Zt >> test.out
+	@${ECHO} >> test.out
+	@${ECHO} 'samefile -L:' >> test.out
+	@${CAT} test.lst | ./samefile -L >> test.out
+	@${ECHO} >> test.out
 
-	@echo 'samefile -iA:' >> test.out
-	@find test | ./samefile -iA >> test.out
-	@echo >> test.out
-	@echo 'samefile -iZ:' >> test.out
-	@find test | ./samefile -iZ >> test.out
-	@echo >> test.out
-	@echo 'samefile -iAt:' >> test.out
-	@find test | ./samefile -iAt >> test.out
-	@echo >> test.out
-	@echo 'samefile -iZt:' >> test.out
-	@find test | ./samefile -iZt >> test.out
-	@echo >> test.out
-	@echo 'samefile -iL:' >> test.out
-	@find test | ./samefile -iL >> test.out
-	@echo >> test.out
+	@${ECHO} 'samefile -iA:' >> test.out
+	@${CAT} test.lst | ./samefile -iA >> test.out
+	@${ECHO} >> test.out
+	@${ECHO} 'samefile -iZ:' >> test.out
+	@${CAT} test.lst | ./samefile -iZ >> test.out
+	@${ECHO} >> test.out
+	@${ECHO} 'samefile -iAt:' >> test.out
+	@${CAT} test.lst | ./samefile -iAt >> test.out
+	@${ECHO} >> test.out
+	@${ECHO} 'samefile -iZt:' >> test.out
+	@${CAT} test.lst | ./samefile -iZt >> test.out
+	@${ECHO} >> test.out
+	@${ECHO} 'samefile -iL:' >> test.out
+	@${CAT} test.lst | ./samefile -iL >> test.out
+	@${ECHO} >> test.out
 
-	@echo 'samefile -ix:' >> test.out
-	@find test | ./samefile -ix >> test.out
-	@diff -u test.out test.samefile
+	@${ECHO} 'samefile -ix:' >> test.out
+	@${CAT} test.lst | ./samefile -ix >> test.out
+	@${DIFF} -u test.out test.samefile
 
 test-samelink: test-build samelink
-	@echo "Testing samelink"
-	@echo 'samelink -A:' > test.out
-	@find test | ./samefile -A | ./samelink -nvA >> test.out 2>&1
-	@echo >> test.out
-	@echo 'samelink -Z:' >> test.out
-	@find test | ./samefile -Z | ./samelink -nvZ >> test.out 2>&1
-	@echo >> test.out
-	@echo 'samelink -At:' >> test.out
-	@find test | ./samefile -At | ./samelink -nvAt >> test.out 2>&1
-	@echo >> test.out
-	@echo 'samelink -Zt:' >> test.out
-	@find test | ./samefile -Zt | ./samelink -nvZt >> test.out 2>&1
-	@echo >> test.out
-	@echo 'samelink -L:' >> test.out
-	@find test | ./samefile -L | ./samelink -nvL >> test.out 2>&1
-	@diff -u test.out test.samelink
+	@${ECHO} "Testing samelink"
+	@${ECHO} 'samelink -A:' > test.out
+	@${CAT} test.lst | ./samefile -A | ./samelink -nvA >> test.out 2>&1
+	@${ECHO} >> test.out
+	@${ECHO} 'samelink -Z:' >> test.out
+	@${CAT} test.lst | ./samefile -Z | ./samelink -nvZ >> test.out 2>&1
+	@${ECHO} >> test.out
+	@${ECHO} 'samelink -At:' >> test.out
+	@${CAT} test.lst | ./samefile -At | ./samelink -nvAt >> test.out 2>&1
+	@${ECHO} >> test.out
+	@${ECHO} 'samelink -Zt:' >> test.out
+	@${CAT} test.lst | ./samefile -Zt | ./samelink -nvZt >> test.out 2>&1
+	@${ECHO} >> test.out
+	@${ECHO} 'samelink -L:' >> test.out
+	@${CAT} test.lst | ./samefile -L | ./samelink -nvL >> test.out 2>&1
+	@${DIFF} -u test.out test.samelink
 
 test-samearchive-lite: test-build samearchive-lite
-	@echo "Testing samearchive-lite"
-	@find test | ./samearchive-lite test test2 > test.out
-	@diff -u test.out test.samearchive-lite
+	@${ECHO} "Testing samearchive-lite"
+	@${CAT} test.lst | ./samearchive-lite test test2 > test.out
+	@${DIFF} -u test.out test.samearchive-lite
 
 test-samearchive: test-build samearchive
-	@echo "Testing samearchive"
-	@find test test2 | ./samearchive -i test test2 > test.out
-	@diff -u test.out test.samearchive
+	@${ECHO} "Testing samearchive"
+	@${CAT} test.lst test2.lst | ./samearchive -i test test2 > test.out
+	@${DIFF} -u test.out test.samearchive
 
 test-build:
-	@-rm -rf test test2
-	@mkdir test test2
-	@echo "1234567890" > test.out
-	@cp test.out test/file1a
-	@sleep 1;
-	@cp test.out test/file3a
-	@sleep 1;
-	@cp test.out test/file2a
-	@ln test/file2a test/file2c
-	@ln test/file2a test/file2b
-	@ln test/file1a test/file1b
-	@sleep 1;
-	@cp test.out test2/file1a
-	@sleep 1;
-	@cp test.out test2/file3a
-	@sleep 1;
-	@cp test.out test2/file2a
-	@sleep 1;
-	@cp test.out test2/file2c
-	@sleep 1;
-	@cp test.out test2/file2b
-	@sleep 1;
-	@cp test.out test2/file1b
-	@find test > find
+	-@${RM} -rf test test2
+	@${MKDIR} test test2
+	@${ECHO} "1234567890" > test.out
+	@${CP} test.out test/file1a
+	@${SLEEP} 1;
+	@${CP} test.out test/file3a
+	@${SLEEP} 1;
+	@${CP} test.out test/file2a
+	@${LN} test/file2a test/file2c
+	@${LN} test/file2a test/file2b
+	@${LN} test/file1a test/file1b
+	@${SLEEP} 1;
+	@${CP} test.out test2/file1a
+	@${SLEEP} 1;
+	@${CP} test.out test2/file3a
+	@${SLEEP} 1;
+	@${CP} test.out test2/file2a
+	@${SLEEP} 1;
+	@${CP} test.out test2/file2c
+	@${SLEEP} 1;
+	@${CP} test.out test2/file2b
+	@${SLEEP} 1;
+	@${CP} test.out test2/file1b
 
 # ----------------------------------------------------------------------
 

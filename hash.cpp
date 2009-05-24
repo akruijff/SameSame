@@ -6,9 +6,9 @@
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
 
-#include <objc/sarray.h>
-
 #include "hash.h"
+
+#include <objc/sarray.h>
 
 hash_t one_at_a_time_hash(unsigned char *key, register size_t key_len) throw()
 {

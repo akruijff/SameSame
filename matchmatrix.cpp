@@ -1,25 +1,25 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
 
-#include <new>
-
-#include <string.h>
-
 #include "configure.h"
 #include "matchmatrix.h"
+
+#include <string.h>
 
 #ifdef DEBUG
 #include <stdio.h>
 #include <stdlib.h>
 #endif
 
-#ifdef WITH_LOGIC
-MatchMatrix::MatchMatrix(size_t number)
+#include <new>
+
+#ifndef WITHOUT_LOGIC
+MatchMatrix::MatchMatrix(size_t number) throw (std::bad_alloc)
 {
 #ifdef DEBUG
 	if (number <= 0)
@@ -29,31 +29,42 @@ MatchMatrix::MatchMatrix(size_t number)
 		exit(EXIT_FAILURE);
 	}
 #endif
-	arr = new signed char*[n = number];
-	size_t i = 0;
+	n = number;
+	signed char *tmp = new signed char[n * sizeof(char **) + (n + 1) * n / 2];
+	arr = (signed char **)tmp;
+	arr[0] = ((signed char *)tmp) + n * sizeof(char **);
+	for (size_t i = 1; i < n; ++i)
+		arr[i] = arr[i - 1] + n - i + 1;
+#ifdef DEBUG
+	if (tmp + n * sizeof(char **) + (n + 1) * n / 2 <= arr[n - 1])
+	{
+		fprintf(stderr, "%s:%u Array out of bounds\n",
+			__FILE__, __LINE__);
+		exit(EXIT_FAILURE);
+	}
+#endif
+/*
+	arr = new signed char*[n = number]; // throws bad_alloc
 	try
 	{
-		for (; i < n; ++i)
-		{
-			arr[i] = new signed char[n - i];
-			memset(arr[i], 0, n - i);
-		}
+		arr[0] = new signed char[(n + 1) * n / 2]; // throws bad_alloc
+		for (size_t i = 1; i < n; ++i)
+			arr[i] = arr[i - 1] + n - i + 1;
 	}
-	catch(const std::bad_alloc &e)
+	catch(std::bad_alloc &e)
 	{
-		for (--i; i > 0; --i)
-			delete[] arr[i];
-		delete[] arr[0];
 		delete[] arr;
 		throw(e);
 	}
+*/
 }
 
 MatchMatrix::~MatchMatrix() throw()
 {
-	for (size_t i = 0; i < n; ++i)
-		delete[] arr[i];
-	delete[] arr;
+	signed char *tmp = (signed char *)arr;
+	delete tmp;
+//	delete[] arr[0];
+//	delete[] arr;
 }
 
 #ifdef DEBUG
@@ -102,4 +113,4 @@ void MatchMatrix::reset(size_t i) throw()
 	memset(arr[i], 0, n - i);
 }
 #endif // DEBUG
-#endif // WITH_LOGIC
+#endif // WITHOUT_LOGIC

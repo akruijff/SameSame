@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -14,18 +14,19 @@
 #include "filegroup.h"
 #include "sizegroup.h"
 #include "holder.h"
-#include "storage.h"
 #include "write2disk.h"
 
-void Write2Disk::visit(Holder &holder) {}
 
-void Write2Disk::visit(SizeGroup &sizegroup)
+int Write2Disk::visit(Holder &holder) { return 0; }
+
+int Write2Disk::visit(SizeGroup &sizegroup)
 {
 	if ((fileSize = sizegroup.getFileSize()) < max)
 		counter += sizegroup.diskWrite(storage);
+	return 1;
 }
 
-void Write2Disk::visit(FileGroup &filegroup) {}
+int Write2Disk::visit(FileGroup &filegroup) { return 1; }
 void Write2Disk::visit(Filename &filename) {}
 
 #endif // WITH_DISK_STORAGE

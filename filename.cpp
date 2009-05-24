@@ -1,14 +1,14 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
 
-#include <string.h>
-
 #include "filename.h"
+
+#include <string.h>
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -19,9 +19,11 @@
 static const char *empty = "";
 #endif
 
-Filename::Filename(size_t size)
+#include <new>
+
+Filename::Filename(size_t size) throw (std::bad_alloc)
 {
-	this->str = new char[++size];
+	this->str = new char[++size]; // throws bad_alloc
 #ifdef DEBUG
 	if (size == 0)
 	{
@@ -33,7 +35,7 @@ Filename::Filename(size_t size)
 	this->str[0] = 0;
 }
 
-Filename::Filename(const char *str)
+Filename::Filename(const char *str) throw (std::bad_alloc)
 {
 #ifdef DEBUG
 	if (str == NULL)
@@ -44,7 +46,7 @@ Filename::Filename(const char *str)
 	}
 #endif
 	size_t len = strlen(str);
-	this->str = new char[++len];
+	this->str = new char[++len]; // throws bad_alloc
 #ifdef DEBUG
 	if (len == 0)
 	{
@@ -56,12 +58,12 @@ Filename::Filename(const char *str)
 	memcpy(this->str, str, len);
 }
 
-void Filename::resize(size_t size)
+void Filename::resize(size_t size) throw (std::bad_alloc)
 {
 	size_t len = strlen(str);
 	if (size < len)
 		size = len;
-	char *tmp = new char[++size];
+	char *tmp = new char[++size]; // throws bad_alloc
 #ifdef DEBUG
 	if (size == 0)
 	{
@@ -75,9 +77,9 @@ void Filename::resize(size_t size)
 	str = tmp;
 }
 
-void Filename::renew(size_t size)
+void Filename::renew(size_t size) throw (std::bad_alloc)
 {
-	char *tmp = new char[++size];
+	char *tmp = new char[++size]; // throws bad_alloc
 #ifdef DEBUG
 	if (size == 0)
 	{

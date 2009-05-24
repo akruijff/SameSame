@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *             Written by Alex de Kruijff           21 May 2009             *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -9,18 +9,20 @@
 #ifndef AK_FILEGROUP_H
 #define AK_FILEGROUP_H
 
-#ifdef DEBUG
-#include <stdio.h>
-#endif
-
-#include <sys/stat.h>
-
 #include "configure.h"
 #include "hash.h"
 #include "container.h"
 // #include "storage.h"
 // #include "visitor.h"
 #include "filename.h"
+
+#ifdef DEBUG
+#include <stdio.h>
+#endif
+
+#include <sys/stat.h>
+
+#include <new>
 
 class SizeGroup;
 class SamefileVisitor;
@@ -32,10 +34,18 @@ class SamefileVisitor;
  */
 class FileGroup
 {
+#ifdef EXPERIMENTAL
+	static XFilenameWrapper tmp;
+#else // EXPERIMENTAL
 	static Filename tmp;
+#endif // EXPERIMENTAL
 
 	struct stat s;
+#ifdef EXPERIMENTAL
+	Container<XFilename> hash;
+#else // EXPERIMENTAL
 	Container<Filename> hash;
+#endif // EXPERIMENTAL
 
 	friend class SizeGroup;
 
@@ -84,26 +94,22 @@ public:
 	/**
 	 * Creates a FileGroup object without a preset shared metadata.
 	 */
-	FileGroup();
+	FileGroup() throw (std::bad_alloc);
 
 	/**
 	 * Creates a FileGroup object with a preset shared meta data.
 	 * @param s - shared meta data
 	 * @param capacity - the initial capacity of the group.
 	 */
-	FileGroup(const struct stat &s, size_t capacity = 1);
+	FileGroup(const struct stat &s, size_t capacity = 1)
+	throw (std::bad_alloc);
 
 	~FileGroup() throw() { hash.deleteItems(); }
 
 	/**
 	 *
 	 */
-	void empty() { hash.deleteItems(); }
-
-	/**
-	 * Returns the number of hard links to this file.
-	 */
-//	nlink_t nlink() const throw() { return this->s.st_nlink; }
+	void empty() throw() { hash.empty(1); }
 
 #ifdef DEBUG
 	size_t getCapacity() const throw() { return hash.getCapacity(); }
@@ -113,10 +119,10 @@ public:
 	 */
 	size_t getSize() const throw() { return hash.getSize(); }
 
-	/**
-	 * Returns the file size of this group.
-	 */
-//	off_t getFileSize() const throw() { return s.st_size; }
+        /**
+         * Gets the boundry for the mode of the container.
+         */
+        size_t getBoundry() const throw() { return hash.getBoundry(); }
 
 	/**
 	 * Returns that meta data.
@@ -138,7 +144,11 @@ public:
 	 * Sort all the Filename on alphabethical order.
 	 */
 	void sort() throw()
+#ifdef EXPERIMENTAL
+	{ hash.sort(XFilename::compare); };
+#else // EXPERIMENTAL
 	{ hash.sort(Filename::compare); };
+#endif // EXPERIMENTAL
 
 	/**
 	 * Open the file using any of Filename(s) within this group.
@@ -156,7 +166,12 @@ public:
 	 * Finds the Filename at the given index.
 	 * @return NULL if the above is not true.
 	 */
-	Filename *operator[](int index) { return hash[index]; }
+#ifdef EXPERIMENTAL
+	const XFilename *operator[](int index) const
+#else // EXPERIMENTAL
+	const Filename *operator[](int index) const
+#endif // EXPERIMENTAL
+	{ return hash[index]; }
 
 	/**
 	 * Is this the same dev, inode pair?
@@ -173,12 +188,12 @@ public:
 	/**
 	 * Doesn't str live in this object?
 	 */
-	int operator!=(const char *str) const;
+	int operator!=(const char *str) const throw (std::bad_alloc);
 
 	/**
 	 * Does str live in this object?
 	 */
-	int operator==(const char *str) const
+	int operator==(const char *str) const throw (std::bad_alloc)
 	{ return !operator!=(str); }
 
 	/**
@@ -190,7 +205,7 @@ public:
 	/**
 	 * Adds a Filename to the FileGroup.
 	 */
-	void operator+=(const char *path);
+	void operator+=(const char *path) throw (std::bad_alloc);
 };
 
 #endif // AK_FILEGROUP_H

@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -44,9 +44,9 @@ public:
 	Write2Disk &reset(size_t max)
 	{ counter = 0, this->max = max; return *this; }
 
-	void visit(Holder &r);
-	void visit(SizeGroup &);
-	void visit(FileGroup &);
+	int visit(Holder &r);
+	int visit(SizeGroup &);
+	int visit(FileGroup &);
 	void visit(Filename &);
 };
 

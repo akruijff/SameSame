@@ -8,17 +8,22 @@
  *                                                                          *
  * Example:      find /backup/ | samearchive <dir1> <dir2> [<dir 3> ...]    *
  * ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
 
-static const char version[] = "$Id: samearchive.cpp, v1.00 2009/04/14 00:00:00 akruijff Exp $\n";
+static const char version[] = "$Id: samearchive.cpp, v1.01 2009/04/14 00:00:00 akruijff Exp $\n";
 
-#include "main.h"
 #include "toolkit.h"
 #include "stats.h"
+#ifdef DEBUG
+#include "debug.h"
+#endif // DEBUG
+
+// This file holds the engine code
+#include "main.h"
 
 static int argc;
 static size_t *length;
@@ -63,10 +68,34 @@ static void usage(const char *program) throw()
 	exit(EXIT_SUCCESS);
 }
 
-static int
-preCheck(const SizeGroup &p, const FileGroup &a, const FileGroup &b) throw()
+inline int passCombination(const char *a, const char *b,
+	size_t len1, size_t len2)
 {
-	return 0;
+	for (size_t i = 0; i < argc; ++i) if (length[i] <= len1)
+		for (size_t j = i + 1; j < argc; ++j) if (length[j] <= len2)
+			if (!memcmp(argv[i], a, length[i]) &&
+				!memcmp(argv[j], b, length[j]) &&
+				!strcmp(a + length[i], b + length[j]))
+				return 0;
+	return 1;
+}
+
+static int preCheck(const SizeGroup &parent,
+const FileGroup &left, const FileGroup &right) throw()
+{
+	size_t leftBoundry = left.getBoundry();
+	size_t rightBoundry = right.getBoundry();
+	int output = 1;
+	for (size_t i = 0; i < leftBoundry; ++i) if (left[i] != NULL)
+	{
+		const char *a = left[i]->data();
+		size_t len1 = strlen(a);
+		for (size_t j = 0; j < rightBoundry; ++j) if (right[j] != NULL)
+			if (!passCombination(a, right[j]->data(),
+				len1, strlen(right[j]->data())))
+				return 0;
+	}
+	return 1;
 }
 
 static int selectResults(int flags, const char *sep)
@@ -76,29 +105,21 @@ static int selectResults(int flags, const char *sep)
 	return FILE_IDENTICAL | FILE_BY_LOGIC;
 }
 
-static int printFileCompare(SizeGroup &parent, FileGroup &left,
-	Filename &leftChild, FileGroup &right, Filename &rightChild,
+static int printFileCompare(const SizeGroup &parent,
+	const FileGroup &left, const Filename &leftChild,
+	const FileGroup &right, const Filename &rightChild,
 	int result) throw()
 {
-	int pass = 1;
-	const char *a = leftChild.data();
-	const char *b = rightChild.data();
-	size_t len1 = strlen(a);
-	size_t len2 = strlen(b);
-	for (size_t i = 0; i < argc && pass; ++i) if (length[i] <= len1)
-		for (size_t j = i + 1; j < argc && pass; ++j) if (length[j] <= len2)
-			if (!memcmp(argv[i], a, length[i]) &&
-				!memcmp(argv[j], b, length[j]) &&
-				!strcmp(a + length[i], b + length[j]))
-				pass = 0;
-	if (pass)
+	if (passCombination(leftChild.data(), rightChild.data(),
+		strlen(leftChild.data()), strlen(rightChild.data())))
 		return 0;
 
 	switch(result)
 	{
 		case FILE_IDENTICAL:
 		case FILE_IDENTICAL | FILE_BY_LOGIC:
-			outputSamefile(a, b, left.stat().st_nlink, right.stat().st_nlink,
+			outputSamefile(leftChild.data(), rightChild.data(),
+				left.stat().st_nlink, right.stat().st_nlink,
 				parent.getFileSize(), left.isOnSameDevice(right), sep);
 			break;
 		case FILE_OPEN1_ERROR:
@@ -122,6 +143,7 @@ static int printFileCompare(SizeGroup &parent, FileGroup &left,
 
 int main(int argc, char **argv)
 {
+	_malloc_options = "H";
 	Stats stats;
 	int offset = processOptions(argc, argv, usage, version);
 	::argc = argc - offset;
@@ -133,4 +155,8 @@ int main(int argc, char **argv)
 	processInput(stats, printFileCompare, selectResults, preCheck);
 	if (S_VERBOSE_LEVEL2(flags))
 		processStats(stats);
+#ifdef DEBUG
+	checkDynamic();
+#endif // DEBUG
+
 }

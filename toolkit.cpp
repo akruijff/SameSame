@@ -1,27 +1,28 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
 
+#include "configure.h"
+#include "toolkit.h"
+
 #include <fcntl.h>
 #include <locale.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <stdlib.h>
-
-#include "configure.h"
-#include "toolkit.h"
-
-#ifdef WITH_MMAP
+#ifdef HAVE_MMAP
 #include <sys/mman.h>
 #endif
+
+#include <new>
 
 static char decimal_point = localeconv()->decimal_point[0];
 
@@ -36,19 +37,18 @@ static struct Buffer
 
 Buffer::Buffer()
 {
-#ifdef WITH_MMAP
+#ifdef HAVE_MMAP
 	size = (size_t)sysconf(_SC_PAGESIZE);
 #else
 	size = 2^15;
 #endif
-	buf1 = new char[size];
-	buf2 = new char[size];
+	buf1 = new char[size << 1]; // throw bad_alloc
+	buf2 = buf1 + size;
 }
 
 Buffer::~Buffer() throw()
 {
 	delete[] buf1;
-	delete[] buf2;
 }
 
 int fcmp(int fd1, int fd2, const struct stat &s1, const struct stat &s2) throw()
@@ -66,7 +66,7 @@ int fcmp(int fd1, int fd2, const struct stat &s1, const struct stat &s2) throw()
 	int previous;
 	do
 	{
-#ifdef WITH_MMAP
+#ifdef HAVE_MMAP
 		void *m1 = mmap (0, buffer.size, PROT_READ, MAP_SHARED, fd1, offset);
 		void *m2 = mmap (0, buffer.size, PROT_READ, MAP_SHARED, fd2, offset);
 
@@ -88,7 +88,7 @@ int fcmp(int fd1, int fd2, const struct stat &s1, const struct stat &s2) throw()
 				munmap(m1, buffer.size);
 			else
 				munmap(m2, buffer.size);
-#endif // WITH_MMAP
+#endif // HAVE_MMAP
 			// Read bytes from first files and check if we could.
 			if ((previous = pread(fd1, buffer.buf1, buffer.size, offset)) < 0)
 				return FILE_READ1_ERROR;
@@ -100,9 +100,9 @@ int fcmp(int fd1, int fd2, const struct stat &s1, const struct stat &s2) throw()
 
 			if (memcmp(buffer.buf1, buffer.buf2, len) != 0)
 				return FILE_DIFFERENT;
-#ifdef WITH_MMAP
+#ifdef HAVE_MMAP
 		}
-#endif // WITH_MMAP
+#endif // HAVE_MMAP
 		offset += len;
 	} while(offset < s1.st_size);
 	return FILE_IDENTICAL;
@@ -137,6 +137,7 @@ int fcmp(const char *f1, const char *f2,
 }
 
 char *fgetline(char *&str, size_t &size, FILE *file, int eol, char *ptr)
+throw (std::bad_alloc)
 {
 	if (&size == 0)
 		return NULL;
@@ -158,16 +159,6 @@ char *fgetline(char *&str, size_t &size, FILE *file, int eol, char *ptr)
 
 	while(input != eol && input != EOF)
 	{
-		*ptr = input;
-		if (++ptr == end)
-		{
-			char *tmp = new char[size << 1];
-			memcpy(tmp, str, size);
-			delete[] str;
-			ptr = (str = tmp) + size - 1;
-			end = ptr + size;
-			size <<= 1;
-		}
 #ifdef DEBUG
 		if (ptr - str >= size)
 		{
@@ -175,6 +166,16 @@ char *fgetline(char *&str, size_t &size, FILE *file, int eol, char *ptr)
 			exit(EXIT_FAILURE);
 		}
 #endif // DEBUG
+		*ptr = input;
+		if (++ptr == end)
+		{
+			char *tmp = new char[size << 1]; // throws bad_alloc
+			memcpy(tmp, str, size);
+			delete[] str;
+			ptr = (str = tmp) + size - 1;
+			end = ptr + size;
+			size <<= 1;
+		}
 		input = fgetc(file);
 	}
 	*ptr = 0;
@@ -182,6 +183,12 @@ char *fgetline(char *&str, size_t &size, FILE *file, int eol, char *ptr)
 	if (ptr - str >= size)
 	{
 		fprintf(stderr, "%s:%d ptr to far\n", __FILE__, __LINE__);
+		exit(EXIT_FAILURE);
+	}
+	if (strlen(str) >= size)
+	{
+		fprintf(stderr, "%s:%d string to large length %u max_size %u\n",
+			__FILE__, __LINE__, strlen(str), size);
 		exit(EXIT_FAILURE);
 	}
 #endif // DEBUG

@@ -17,13 +17,16 @@
  *                                                                          *
  * Example:           find <dir1> | samearchive-lite <dir1> <dir2> [...]    *
  * ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
 
 static const char version[] = "$Id: samearchive-lite.cpp, v1.00 2009/04/14 00:00:00 akruijff Exp $\n";
+
+#include "configure.h"
+#include "toolkit.h"
 
 #include <fcntl.h>
 #include <limits.h>
@@ -32,9 +35,6 @@ static const char version[] = "$Id: samearchive-lite.cpp, v1.00 2009/04/14 00:00
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-#include "configure.h"
-#include "toolkit.h"
 
 #ifdef STATIC_CACHE_CAPACITY
 #include "hash.h"
@@ -218,7 +218,7 @@ static void processInput(int argc, char **argv)
 		// Skip lines that do not start with argv[0]
 		if (strlen(f1) < len0 || memcmp(f1, argv[0], len0))
 		{
-			fprintf(stderr, "error: line didn't start with %s\n", argv[0]);
+			fprintf(stderr, "Skipped %s because it didn't start with %s.\n", f1, argv[0]);
 			fprintf(stderr, "%s %i < %i\n", f1, strlen(f1), len0);
 			continue;
 		}

@@ -1,12 +1,10 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
-
-#include <stdio.h>
 
 #include "configure.h"
 #include "hash.h"
@@ -16,6 +14,10 @@
 #include "filegroup.h"
 #include "matchmatrix.h"
 #include "sizegroup.h"
+
+#include <stdio.h>
+
+#include <new>
 
 #ifndef FILE_BY_LOGIC
 #define FILE_BY_LOGIC FILE_USER1
@@ -32,7 +34,8 @@ int SizeGroup::compare(const void *a, const void *b) throw()
 
 /* ************************************************************************ */
 
-SizeGroup::SizeGroup(const struct stat &s, size_t capacity) : hash(capacity)
+SizeGroup::SizeGroup(const struct stat &s, size_t capacity)
+throw (std::bad_alloc) : hash(capacity)
 {
 	fileSize = s.st_size;
 	nIdenticals = 0;
@@ -45,19 +48,28 @@ hash_t SizeGroup::hashFunction(const SizeGroup &obj) throw()
 	return hashword((hash_t *)&obj.fileSize, sizeof(off_t) / sizeof(hash_t));
 }
 
-FileGroup &SizeGroup::operator[](const struct stat &key)
+FileGroup &SizeGroup::operator[](const struct stat &key) throw (std::bad_alloc)
 {
 	tmp = key;
-	if (hash[tmp])
+	if (hash[tmp] != NULL)
 		return *hash[tmp];
-	FileGroup *ptr = new FileGroup(key);
-	hash += *ptr;
-	return *ptr;
+	FileGroup *ptr = new FileGroup(key); // throws bad_alloc
+	try
+	{
+		hash += *ptr; // throws bad_alloc
+		return *ptr;
+	}
+	catch(std::bad_alloc &e)
+	{
+		delete ptr;
+		throw(e);
+	}
 }
 
 void SizeGroup::accept(SamefileVisitor &v)
 {
-	v.visit(*this);
+	if (v.visit(*this))
+		return;
 	size_t n = hash.getBoundry();
 	for (size_t i = 0; i < n; ++i)
 		if (hash[i] != NULL)
@@ -88,6 +100,7 @@ size_t SizeGroup::diskWrite(Storage &storage) throw()
 
 int SizeGroup::diskRead(
 	int (&addingAllowed)(const char *, const struct stat &, const FileGroup &))
+	throw (std::bad_alloc)
 {
 	if (storage == NULL)
 		return 0;
@@ -96,7 +109,7 @@ int SizeGroup::diskRead(
 	const char *path;
 	while((path = storage->read(tmp.s)) != NULL)
 		if (addingAllowed(path, hash[tmp]->stat(), *hash[tmp]))
-			*hash[tmp] += path;
+			*hash[tmp] += path; // throws bad_alloc
 	size_t counter = storage->close();
 	storage->clean();
 	return counter;
@@ -104,19 +117,19 @@ int SizeGroup::diskRead(
 
 /* ************************************************************************ */
 
-#ifdef WITH_LOGIC
+#ifndef WITHOUT_LOGIC
 void SizeGroup::compareFiles(MatchMatrix &match,
-#else // WITH_LOGIC
+#else // WITHOUT_LOGIC
 void SizeGroup::compareFiles(
-#endif // WITH_LOGIC
-	int (&f)(SizeGroup &, FileGroup &, Filename &,
-		FileGroup &, Filename &, int),
+#endif // WITHOUT_LOGIC
+	int (&f)(const SizeGroup &, const FileGroup &, const Filename &,
+		const FileGroup &, const Filename &, int),
 	int flags,
 	int (*preCheck)(const SizeGroup &, const FileGroup &, const FileGroup &)
 	) throw()
 {
 	size_t n = hash.getSize();
-	if (n < 2)
+	if (hash.getSize() < 2)
 		return;
 
 	// Make sure the container is a vector
@@ -143,7 +156,7 @@ void SizeGroup::compareFiles(
 			exit(EXIT_FAILURE);
 		}
 #endif // DEBUG
-		size_t nn = hash[i]->getSize();
+		size_t nn = hash[i]->getBoundry();
 		for (size_t j = i + 1; j < n; ++j)
 		{
 #ifdef DEBUG
@@ -169,22 +182,22 @@ void SizeGroup::compareFiles(
 				continue;
 
 			// Do a physically check if we couldn't use logic
-#ifdef WITH_LOGIC
+#ifndef WITHOUT_LOGIC
 			int result = match.get(i, j);
 			if (!(result))
 			{
 				result = hash[i]->fcmp(*hash[j]);
-#else // WITH_LOGIC
+#else // WITHOUT_LOGIC
 				int result = hash[i]->fcmp(*hash[j]);
-#endif // WITH_LOGIC
+#endif // WITHOUT_LOGIC
 				if (result > 0 && result & FILE_IDENTICAL)
 					++nIdenticals;
 				else if (result < 0)
 					f(*this, left, *left[0], right, *right[0], result);
-#ifdef WITH_LOGIC
+#ifndef WITHOUT_LOGIC
 				match.set(i, j, result);
 			}
-#endif // WITH_LOGIC
+#endif // WITHOUT_LOGIC
 
 			// do something with the result.
 			switch(result)
@@ -198,18 +211,18 @@ void SizeGroup::compareFiles(
 						!(result & FILE_BY_LOGIC))
 					{
 						int skip = 0;
-						size_t mm = hash[j]->getSize();
-						for (size_t x = 0; x < nn; ++x)
+						size_t mm = hash[j]->getBoundry();
+						for (size_t x = 0; x < nn; ++x) if (left[x] != NULL)
 						{
 							for (size_t y = 0; y < mm; ++y)
-								if (f(*this, left, *left[x], right, *right[y],
-									result))
+								if (right[y] != NULL && f(*this, left, *left[x],
+									right, *right[y], result))
 									skip = 1;
 							if (skip == 1)
 								break;
 						}
 					}
-#ifdef WITH_LOGIC
+#ifndef WITHOUT_LOGIC
 					// a==b (00) a==c (01) => b==c (10)  | rowSize = 10
 					// a!=d (02) => b!=d (12) c!=d (22)
 					for (size_t k = i + 1; k <= j; ++k)
@@ -226,11 +239,11 @@ void SizeGroup::compareFiles(
 										FILE_DIFFERENT | FILE_BY_LOGIC);
 								break;
 							}
-#endif // WITH_LOGIC
+#endif // WITHOUT_LOGIC
 				}
 				break;
 
-#ifdef WITH_LOGIC
+#ifndef WITHOUT_LOGIC
 				case FILE_OPEN1_ERROR:
 				case FILE_READ1_ERROR:
 						j = n;
@@ -241,11 +254,11 @@ void SizeGroup::compareFiles(
 					for (size_t k = i + 1; k < j; ++k)
 						match.set(k, j, result);
 				break;
-#endif // WITH_LOGIC
+#endif // WITHOUT_LOGIC
 			}
 		}
-#ifdef WITH_LOGIC
+#ifndef WITHOUT_LOGIC
 		match.reset(i);
-#endif // WITH_LOGIC
+#endif // WITHOUT_LOGIC
 	}
 }

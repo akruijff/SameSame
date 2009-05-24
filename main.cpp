@@ -1,21 +1,12 @@
 
 /* ************************************************************************ *
- * This is samefile driver. Programs can use this by including this source  *
- * file and implement the following functions:                              *
+ *                         This is samefile driver.                         *
  * ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *             Written by Alex de Kruijff           21 May 2009             *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
-
-#include <new>
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <limits.h>
-#include <unistd.h>
 
 #include "configure.h"
 #include "toolkit.h"
@@ -29,6 +20,14 @@
 // #include "sizegroup.h"
 #include "holder.h"
 #include "main.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <unistd.h>
+
+#include <new>
 
 #define VERBOSE_LEVEL1		1
 #define VERBOSE_LEVEL2		2
@@ -61,8 +60,6 @@
 #define S_VERBOSE_LEVEL1(m)		(((m) & VERBOSE_MASK) >= VERBOSE_LEVEL1)
 #define S_VERBOSE_LEVEL2(m)		(((m) & VERBOSE_MASK) >= VERBOSE_LEVEL2)
 #define S_VERBOSE_LEVEL3(m)		(((m) & VERBOSE_MASK) >= VERBOSE_LEVEL3)
-
-static Stats stats;
 
 // Retrieved from processOptions
 static const char *program = NULL;
@@ -115,7 +112,6 @@ int processOptions(
 			case 'L': flags &= ~MATCH_MASK; 	flags |= MATCH_AUTO; 	break;
 			case 'Z': flags &= ~MATCH_LEFT;		flags |= MATCH_RIGHT;  	break;
 			case 't': 							flags |= MATCH_TIME; 	break;
-
 			case 'x': 						flags |= FULL_LIST; 		break;
 			case 'i':						flags |= ADD_HARDLINKED;	break;
 			case 'r':						flags |= REPORT_HARDLINKS;	break;
@@ -135,49 +131,80 @@ solveMemoryProblem(Holder &holder, Write2Disk &write2Disk, size_t flags)
 static void solveMemoryProblem(Holder &holder, size_t flags)
 #endif // WITH_DISK_STORAGE
 {
-	holder.accept(stats.reset());
-	size_t maxDiskFileSize = 0, max = stats.getMaxFileSize();
+	Stats stats;
+	holder.accept(stats);
+	size_t maxDiskFileSize = 0;
+	size_t min = stats.getMinFileSize();
+	size_t max = stats.getMaxFileSize();
+	size_t avg = stats.getTotalSize() / stats.getFilenames();
 
 #ifdef WITH_DISK_STORAGE
+	// would give problems with sorting.
+	switch(S_MATCH_MASK(::flags))
+	{
+		case MATCH_LEFT:								// -A
+		case MATCH_RIGHT:								// -Z
+			write2Disk.reset(0);
+			flags &= ~1;
+	}
+
 	// try to write to disk
 	if (flags & 1)
-		switch(S_MATCH_MASK(flags))
-		{
-			default:
-				do
-				{
-					holder.accept(write2Disk.reset(++maxDiskFileSize));
-				}
-				while(maxDiskFileSize < max && write2Disk.done() <= 0);
-				break;
-			case MATCH_LEFT: // would give problems with sorting.
-			case MATCH_RIGHT: // would give problems with sorting.
-				write2Disk.reset(0);
-		}
-
-	// try to remove from memory if we fail
-	if (write2Disk.done() <= 0)
 	{
-#endif // WITH_DISK_STORAGE
-		if (flags & 2)
-			while(!holder.remove(0, ++minSize) && minSize < max);
-
-		// abort if we fail
-		if (minSize == max)
+		do
 		{
-			fprintf(stderr,
-				"Aborting... the filelist was much to large.\n");
-			fprintf(stderr, "Try using the options -g and -m\n");
+			if (maxDiskFileSize < avg / 2 + min / 2)
+				maxDiskFileSize = avg / 2 + min / 2;
+			else if (maxDiskFileSize < avg)
+				maxDiskFileSize = avg;
+			else
+				maxDiskFileSize = max;
+			holder.accept(write2Disk.reset(maxDiskFileSize));
 		}
-		else if (S_VERBOSE_LEVEL1(flags))
-			fprintf(stderr,
-				"warning: memory full - changed minimum file size to %u\n",
-				minSize);
-#ifdef WITH_DISK_STORAGE
+		while(maxDiskFileSize < max && write2Disk.done() <= 0);
+		if (write2Disk.done())
+		{
+			fprintf(stderr, "memory full: written %u paths to disk\n",
+				write2Disk.done());
+			return;
+		}
 	}
-	else if (S_VERBOSE_LEVEL2(flags))
-		fprintf(stderr, "written %u items to disk\n", write2Disk.done());
+
 #endif // WITH_DISK_STORAGE
+	// try to remove from memory if we fail
+	if (flags & 2)
+	{
+		unsigned long counter = 0;
+		do
+		{
+			if (minSize == 0)
+				minSize = 32;
+			else if (minSize < max)
+				minSize <<= 1;
+			if (minSize >= max)
+			{
+				minSize >>= 1;
+				size_t tmp = minSize >> 1;
+				while(minSize + tmp >= max && tmp > 1)
+					tmp >>= 1;
+				minSize += tmp;
+			}
+			counter += holder.remove(0, minSize);
+		}
+		while(counter == 0 && minSize < max);
+	}
+
+	// abort if we fail
+	if (minSize >= max)
+	{
+		fprintf(stderr,
+			"memory full: aborting... to manny files with the same size.\n");
+		exit(EXIT_FAILURE);
+	}
+	else if (S_VERBOSE_LEVEL1(flags))
+		fprintf(stderr,
+			"memory full: changed minimum file size to %u\n",
+			minSize);
 }
 
 #ifdef WITH_DISK_STORAGE
@@ -210,7 +237,7 @@ static void readInput(Holder &holder) throw()
 			}
 			continueRoutine = 0;
 		}
-		catch(const std::bad_alloc &e)
+		catch(std::bad_alloc &e)
 		{
 			pos = path + ((pos == NULL) ? capacity : strlen(path));
 #ifdef WITH_DISK_STORAGE
@@ -234,13 +261,46 @@ static int deleteEarly(SizeGroup &obj)
 	return 1;
 }
 
+void compareFiles(Stats &stats, Holder &holder,
+	int (&printFileCompare)(const SizeGroup &,
+		const FileGroup &, const Filename &,
+		const FileGroup &, const Filename &,
+		int result),
+	int flags,
+	int (*preCheck)(const SizeGroup &,
+		const FileGroup &, const FileGroup &)
+#ifdef WITH_DISK_STORAGE
+	, Write2Disk &write2Disk
+#endif // WITH_DISK_STORAGE
+	) throw()
+{
+	int continueRoutine = 1;
+	do
+	{
+		try
+		{
+			holder.compareFiles(stats, printFileCompare, flags,
+				addingAllowed, deleteEarly, preCheck);
+			continueRoutine = 0;
+		}
+		catch(std::bad_alloc &e)
+		{
+#ifdef WITH_DISK_STORAGE
+			solveMemoryProblem(holder, write2Disk, 3);
+#else // WITH_DISK_STORAGE
+			solveMemoryProblem(holder, 3);
+#endif // WITH_DISK_STORAGE
+		}
+	} while(continueRoutine);
+}
+
 void processInput(Stats &stats,
-	int (&printFileCompare)(SizeGroup &parent, FileGroup &left,
-		Filename &leftChild, FileGroup &right, Filename &rightChild,
+	int (&printFileCompare)(const SizeGroup &, const FileGroup &,
+		const Filename &, const FileGroup &, const Filename &,
 		int result),
 	int (&selectResults)(int flags, const char *sep),
 	int (*preCheck)(const SizeGroup &,
-		const FileGroup &, const FileGroup &))
+		const FileGroup &, const FileGroup &)) throw()
 {
 	gettimeofday(&time0, (struct timezone *)NULL);
 	size_t oldMinSize = minSize;
@@ -276,7 +336,7 @@ void processInput(Stats &stats,
 			break;
 		case MATCH_RIGHT:								// -Z
 			holder.sort(FileGroup::compareLast);
-				break;
+			break;
 		case MATCH_RIGHT | MATCH_TIME:					// -Zt
 			holder.sort(FileGroup::compareYoungest);
 			break;
@@ -300,24 +360,13 @@ void processInput(Stats &stats,
 	// Stage4 - checkfiles & print identical
 	if (S_VERBOSE_LEVEL2(flags))
 		fprintf(stderr, "info: comparing files\n");
-	try
-	{
-		holder.compareFiles(printFileCompare, selectResults(flags, sep),
-			addingAllowed, deleteEarly, preCheck);
-	}
-	catch(const std::bad_alloc &e)
-	{
+	compareFiles(stats, holder, printFileCompare, selectResults(flags, sep),
 #ifdef WITH_DISK_STORAGE
-		solveMemoryProblem(holder, write2Disk, 2);
+		preCheck, write2Disk);
 #else // WITH_DISK_STORAGE
-		solveMemoryProblem(holder, 2);
+		preCheck);
 #endif // WITH_DISK_STORAGE
-	}
 	gettimeofday(&time4, (struct timezone *)NULL);
-
-	// Stage5 - finish stats
-	if (S_VERBOSE_LEVEL2(flags))
-		holder.accept(stats.reset());
 
 	if (minSize != oldMinSize && S_VERBOSE_LEVEL1(flags))
 	{
@@ -329,9 +378,9 @@ void processInput(Stats &stats,
 	}
 }
 
-void processStats(Stats &stats)
+void processStats(Stats &stats) throw()
 {
-	size_t avg = stats.getTotalSize() / stats.getFiles();
+	size_t avg = stats.getTotalSize() / stats.getFilenames();
 	int percentage = 100 * stats.getWaisted() / stats.getTotalSize();
 	int ndigits = digits(stats.getTotalSize());
 

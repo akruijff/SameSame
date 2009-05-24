@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *             Written by Alex de Kruijff           21 May 2009             *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -12,11 +12,14 @@
 #include "sizegroup.h"
 #include "holder.h"
 #include "visitor.h"
+#include "stats.h"
+
+#include <new>
 
 /* ************************************************************************ */
 SizeGroup Holder::tmp;
 
-Holder::Holder(size_t capacity) : hash(capacity)
+Holder::Holder(size_t capacity) throw (std::bad_alloc) : hash(capacity)
 {
 	hash.setHashFunction(SizeGroup::hashFunction);
 }
@@ -27,21 +30,30 @@ size_t Holder::remove(size_t min, size_t max) throw()
 	for (size_t i = 0; i < n; ++i) if (hash[i] != NULL)
 		if (min <= hash[i]->getFileSize() && hash[i]->getFileSize() < max)
 		{
-			hash -= *hash[i];
+			hash.deleteItem(i);
 			++counter;
 		}
+	hash.fix();
 	return counter;
 }
 
-SizeGroup &Holder::operator[](const struct stat &s)
+SizeGroup &Holder::operator[](const struct stat &s) throw (std::bad_alloc)
 {
 	tmp = s;
-	if (hash[tmp])
+	if (hash[tmp] != NULL)
 		return *hash[tmp];
 
-	SizeGroup *ptr = new SizeGroup(s);
-	hash += *ptr;
-	return *ptr;
+	SizeGroup *ptr = new SizeGroup(s); // throws bad_alloc
+	try
+	{
+		hash += *ptr; // throws bad_alloc
+		return *ptr;
+	}
+	catch(std::bad_alloc &e)
+	{
+		delete ptr;
+		throw(e);
+	}
 }
 
 void Holder::sort(int (&compare)(const void *a, const void *b)) throw()
@@ -54,21 +66,23 @@ void Holder::sort(int (&compare)(const void *a, const void *b)) throw()
 
 void Holder::accept(SamefileVisitor &v)
 {
-	v.visit(*this);
+	if (v.visit(*this))
+		return;
 	size_t n = hash.getBoundry();
 	for (size_t i = 0; i < n; ++i)
 		if (hash[i] != NULL)
 			hash[i]->accept(v);
 }
 
-void Holder::compareFiles(int (&func)(SizeGroup &, FileGroup &,
-		Filename &, FileGroup &, Filename &, int),
+void Holder::compareFiles(Stats &stats,
+	int (&func)(const SizeGroup &, const FileGroup &,
+		const Filename &, const FileGroup &, const Filename &, int),
 	int flags,
 	int (&addingAllowed)(const char *, const struct stat &,
 		const FileGroup &),
 	int (*postAction)(SizeGroup &),
 	int (*preCheck)(const SizeGroup &, const FileGroup &, const FileGroup &)
-	) throw()
+	) throw(std::bad_alloc)
 {
 	// Clean up SizeGroup(s) with just one FileGroup
 	// And get the maximum FileGroup(s) within any one SizeGroup
@@ -82,20 +96,21 @@ void Holder::compareFiles(int (&func)(SizeGroup &, FileGroup &,
 	}
 
 	// Compare
-#ifdef WITH_LOGIC
-	MatchMatrix match(max);
-#endif // WITH_LOGIC
+#ifndef WITHOUT_LOGIC
+	MatchMatrix match(max); // throws(bad_alloc)
+#endif // WITHOUT_LOGIC
 	for (size_t i = 0; i < n; ++i)
 	{
 		if (hash[i] == NULL)
 			continue;
 		SizeGroup &select = *hash[i];
 		select.diskRead(addingAllowed);
-#ifdef WITH_LOGIC
+#ifndef WITHOUT_LOGIC
 		select.compareFiles(match, func, flags, preCheck);
-#else // WITH_LOGIC
+#else // WITHOUT_LOGIC
 		select.compareFiles(func, flags, preCheck);
-#endif // WITH_LOGIC
+#endif // WITHOUT_LOGIC
+		hash[i]->accept(stats);
 		if (postAction != NULL && postAction(select))
 			delete (hash -= *hash[i]);
 	}

@@ -8,18 +8,23 @@
  * To get a list for when you intent to keep the file last modified:        *
  *            find / | samefile-iZt                                         *
  * ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
 
-static const char version[] = "$Id: samefile.cpp, v3.00 2009/04/14 00:00:00 akruijff Exp $\n";
+static const char version[] = "$Id: samefile.cpp, v3.01 2009/04/14 00:00:00 akruijff Exp $\n";
 
-#include "main.h"
 #include "toolkit.h"
 #include "stats.h"
 #include "sizegroup.h"
+#ifdef DEBUG
+#include "debug.h"
+#endif // DEBUG
+
+// This file holds the engine code
+#include "main.h"
 
 static int flags;
 static const char *sep;
@@ -70,8 +75,9 @@ static int selectResults(int flags, const char *sep)
 					: FILE_IDENTICAL;
 }
 
-static int printFileCompare(SizeGroup &parent, FileGroup &left,
-	Filename &leftChild, FileGroup &right, Filename &rightChild,
+static int printFileCompare(const SizeGroup &parent,
+	const FileGroup &left, const Filename &leftChild,
+	const FileGroup &right, const Filename &rightChild,
 	int result) throw()
 {
 	switch(result)
@@ -103,9 +109,13 @@ static int printFileCompare(SizeGroup &parent, FileGroup &left,
 
 int main(int argc, char **argv)
 {
+	_malloc_options = "H";
 	Stats stats;
 	processOptions(argc, argv, usage, version);
 	processInput(stats, printFileCompare, selectResults);
 	if (S_VERBOSE_LEVEL2(flags))
 		processStats(stats);
+#ifdef DEBUG
+	checkDynamic();
+#endif // DEBUG
 }

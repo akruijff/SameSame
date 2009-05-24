@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -9,16 +9,18 @@
 #ifndef AK_SIZEGROUP_H
 #define AK_SIZEGROUP_H
 
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <string.h>
-
 #include "configure.h"
 #include "hash.h"
 #include "container.h"
 // #include "filename.h"
 // #include "filegroup.h"
 // #include "matchmatrix.h"
+
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <string.h>
+
+#include <new>
 
 class Filename;
 class FileGroup;
@@ -53,14 +55,17 @@ public:
 	/**
 	 * Creates a SizeGroup object without a preset shared file size.
 	 */
-	SizeGroup() { fileSize = 0; nIdenticals = 0; storage = NULL; }
+	SizeGroup() throw (std::bad_alloc)
+	{ fileSize = 0; nIdenticals = 0; storage = NULL; }
 
 	/**
 	 * Creates a SizeGroup object with a preset shared file size.
 	 * @param s - meta data with the size.
 	 * @param capacity - the initial capacity of the group.
 	 */
-	SizeGroup(const struct stat &s, size_t capacity = 4);
+	SizeGroup(const struct stat &s, size_t capacity = 4)
+	throw (std::bad_alloc);
+
 	~SizeGroup() throw() { hash.deleteItems(); }
 
 	/**
@@ -91,7 +96,7 @@ public:
 	 */
 	int diskRead(
 		int (&addingAllowed)(const char *, const struct stat &,
-			const FileGroup &));
+			const FileGroup &)) throw (std::bad_alloc);
 
 	/**
 	 * Is the given SizeGroup the same as this one?
@@ -116,7 +121,7 @@ public:
 	 * Selects the FileGroup for the given key. It is created if it
 	 * doesn't exist jet.
 	 */
-	FileGroup &operator[](const struct stat &key);
+	FileGroup &operator[](const struct stat &key) throw (std::bad_alloc);
 
 	/**
 	 * Sorts all the FileGroup objects in order depinding on the function
@@ -129,7 +134,7 @@ public:
 	 */
 	void accept(SamefileVisitor &v);
 
-#ifdef WITH_LOGIC
+#ifndef WITHOUT_LOGIC
 	/**
 	 * Compares each FileGroup against each other and passes the result to
 	 * the given function
@@ -148,11 +153,11 @@ public:
 	 *                   function is not set or it returns true.
 	 */
 	void compareFiles(MatchMatrix &match,
-#else // WITH_LOGIC
+#else // WITHOUT_LOGIC
 	void compareFiles(
-#endif // WITH_LOGIC
-		int (&f)(SizeGroup &, FileGroup &, Filename &,
-			FileGroup &, Filename &, int),
+#endif // WITHOUT_LOGIC
+		int (&f)(const SizeGroup &, const FileGroup &, const Filename &,
+			const FileGroup &, const Filename &, int),
 		int flags,
 		int (*preCheck)(const SizeGroup &,
 			const FileGroup &, const FileGroup &) = NULL

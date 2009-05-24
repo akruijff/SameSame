@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -10,14 +10,13 @@
 #define AK_STORAGE_H
 
 #include "configure.h"
-
-#include <stdio.h>
-#include <sys/stat.h>
-
 // #include "hash.h"
 // #include "container.h"
 // #include "filename.h"
 #include "visitor.h"
+
+#include <stdio.h>
+#include <sys/stat.h>
 
 class Holder;
 class SizeGroup;
@@ -39,17 +38,17 @@ class Storage : public SamefileVisitor
 	size_t storageBase, lineCapacity, counter;
 
 public:
-	Storage(const char *program);
+	Storage(const char *program) throw (std::bad_alloc);
 	~Storage() throw();
 
 	int open(size_t filesize) throw();
-	const char *read(struct stat &s);
+	const char *read(struct stat &s) throw (std::bad_alloc);
 	size_t close() throw();
 	void clean() const throw();
 
-	void visit(Holder &);
-	void visit(SizeGroup &);
-	void visit(FileGroup &);
+	int visit(Holder &);
+	int visit(SizeGroup &);
+	int visit(FileGroup &);
 	void visit(Filename &);
 };
 

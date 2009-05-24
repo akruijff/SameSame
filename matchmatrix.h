@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -11,13 +11,15 @@
 
 #include "configure.h"
 
-#ifdef WITH_LOGIC
+#ifndef WITHOUT_LOGIC
 #include <string.h>
 
 #ifdef DEBUG
 #include <stdio.h>
 #include <stdlib.h>
 #endif
+
+#include <new>
 
 class MatchMatrix
 {
@@ -29,26 +31,17 @@ public:
 	 * Creates a MatchMatrix that is able to store the match results of
 	 * n elements.
 	 */
-	MatchMatrix(size_t n);
+	MatchMatrix(size_t n) throw (std::bad_alloc);
 
 	~MatchMatrix() throw();
 
 #ifndef DEBUG
 	int get(size_t i, size_t j) const throw()
 	{ return arr[i][j - i]; }
-#else
-	int get(size_t i, size_t j) const throw();
-#endif // DEBUG
 
-#ifndef DEBUG
 	void set(size_t i, size_t j, int result) throw()
 	{ arr[i][j - i] = result; }
-#else
-	void set(size_t i, size_t j, int result) throw();
-#endif // DEBUG
 
-
-#ifndef DEBUG
 	/**
 	 * Reset a number of elements to 0.
 	 * @param i - the row to be reset
@@ -56,8 +49,10 @@ public:
 	void reset(size_t i) throw()
 	{ memset(arr[i], 0, n - i); }
 #else
+	int get(size_t i, size_t j) const throw();
+	void set(size_t i, size_t j, int result) throw();
 	void reset(size_t i) throw();
 #endif // DEBUG
 };
-#endif // WITH_LOGIC
+#endif // WITHOUT_LOGIC
 #endif // AK_MATCHMATRIX_H

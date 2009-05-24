@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *            Written by Alex de Kruijff           21 April 2009            *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -9,8 +9,9 @@
 #ifndef AK_STATS_H
 #define AK_STATS_H
 
-#include <limits.h>
 #include "visitor.h"
+
+#include <limits.h>
 
 class Holder;
 class SizeGroup;
@@ -60,9 +61,9 @@ public:
 	unsigned long getWaisted() { return waisted; }
 #endif // __LONG_LONG_SUPPORTED
 
-	void visit(Holder &);
-	void visit(SizeGroup &);
-	void visit(FileGroup &);
+	int visit(Holder &);
+	int visit(SizeGroup &);
+	int visit(FileGroup &);
 	void visit(Filename &);
 };
 

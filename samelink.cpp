@@ -13,24 +13,25 @@
  * Only create hard link if the files have the same extention:              *
  *            find / | samefile -i | samelink '[^/.]+$'                     *
  * ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *             Written by Alex de Kruijff           21 May 2009             *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
  * ************************************************************************ */
 
-static const char version[] = "$Id: samelink.cpp,v 1.00 2009/04/14 00:00:00 akruijff Exp $\n";
+static const char version[] = "$Id: samelink.cpp,v 1.01 2009/04/14 00:00:00 akruijff Exp $\n";
+
+#include "configure.h"
+#include "toolkit.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-
-#include "configure.h"
-#include "toolkit.h"
 
 #define TIME_SYNC	30
 
@@ -72,6 +73,7 @@ static char *program = NULL;
 static const char *sep = "\t";
 static size_t minSize = 0, maxSize = UINT_MAX;
 static unsigned int flags = VERBOSE_LEVEL1 | MATCH_LEFT;
+static int stopping = 0;
 
 // Retrieved from processInput
 static size_t processed = 0, untouched = 0;
@@ -81,6 +83,11 @@ static unsigned long long bytesSaved = 0;
 static unsigned long bytesSaved = 0;
 #endif // __LONG_LONG_SUPPORTED
 static struct timeval time0, time1;
+
+static void quit(int sig)
+{
+	stopping = 1;
+}
 
 /**
  * Prints the usage of this program.
@@ -228,16 +235,19 @@ static void processInput(int argc, char **argv)
 	char *line = new char[capacity];
 
 	size_t size = 0;
-	char *f1 = new char[fs], *f2 = new char[fs];
 	int time2sync = time(NULL) + TIME_SYNC;
+	struct stat s1, s2;
+	char *f1 = new char[fs], *f2 = new char[fs];
 	while(fgetline(line, capacity, stdin) != NULL)
 	{
 		// Is it time to sync?
-		if (time(NULL) < time2sync)
+		if (time(NULL) < time2sync && !S_DRYRUN(flags))
 		{
 			sync();
 			time2sync = time(NULL) + TIME_SYNC;
 		}
+		if (stopping)
+			break;
 
 		// Is f1 and f2 to small?
 		if (strlen(line) > fs)
@@ -259,7 +269,6 @@ static void processInput(int argc, char **argv)
 		}
 
 		// get meta data
-		struct stat s1, s2;
 		if (lstat(f1, &s1)  || lstat(f2, &s2))
 		{
 			printf("%s\n", line);
@@ -357,6 +366,17 @@ static void processStats()
 
 int main(int argc, char **argv)
 {
+	signal(SIGHUP, quit);
+	signal(SIGINT, quit);
+	signal(SIGALRM, quit);
+	signal(SIGTERM, quit);
+	signal(SIGXCPU, quit);
+	signal(SIGXFSZ, quit);
+	signal(SIGVTALRM, quit);
+	signal(SIGPROF, quit);
+	signal(SIGUSR1, quit);
+	signal(SIGUSR2, quit);
+	signal(SIGTHR, quit);
 	int offset = processOptions(argc, argv);
 	processInput(argc - offset, argv + offset);
 	if (S_VERBOSE_LEVEL3(flags))

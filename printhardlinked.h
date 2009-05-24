@@ -24,9 +24,9 @@ class PrintHardLinked : public SamefileVisitor
 	const char *sep;
 public:
 	PrintHardLinked(const char *sep) { this->sep = sep; }
-	void visit(Holder &);
-	void visit(SizeGroup &);
-	void visit(FileGroup &);
+	int visit(Holder &);
+	int visit(SizeGroup &);
+	int visit(FileGroup &);
 	void visit(Filename &);
 };
 

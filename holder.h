@@ -1,6 +1,6 @@
 
 /* ************************************************************************ *
- *            Written by Alex de Kruijff           14 April 2009            *
+ *             Written by Alex de Kruijff           21 May 2009             *
  * ************************************************************************ *
  * This source was written with a tabstop every four characters             *
  * In vi type :set ts=4                                                     *
@@ -13,7 +13,11 @@
 #include "container.h"
 #include "filegroup.h"
 #include "sizegroup.h"
+#include "stats.h"
 
+#include <new>
+
+class Stats;
 class SamefileVisitor;
 
 /**
@@ -31,7 +35,7 @@ public:
 	/**
 	 * Creates a Holder with the given capacity to store SizeGroup objects
 	 */
-	Holder(size_t capacity = 64);
+	Holder(size_t capacity = 64) throw (std::bad_alloc);
 
 	~Holder() throw() { hash.deleteItems();}
 
@@ -45,7 +49,7 @@ public:
 	 * Selects the SizeGroup for the geven key. It is created if it doesn't
 	 * exist jet.
 	 */
-	SizeGroup &operator[](const struct stat &key);
+	SizeGroup &operator[](const struct stat &key) throw (std::bad_alloc);
 
 	/**
 	 * Sorts all the SizeGroup objects in reversed cronologic order based
@@ -77,15 +81,16 @@ public:
 	 *                   this time. The combination is checks when this
 	 * @param readMaxFileSize - the max file size of paths written to disk
 	 */
-	void compareFiles(
-		int (&f)(SizeGroup &, FileGroup &, Filename &,
-			FileGroup &, Filename &, int),
+	void compareFiles(Stats &stats,
+		int (&f)(const SizeGroup &, const FileGroup &, const Filename &,
+			const FileGroup &, const Filename &, int),
 		int flags,
 		int (&addingAllowed)(const char *, const struct stat &,
 			const FileGroup &),
 		int (*postAction)(SizeGroup &) = NULL,
 		int (*preCheck)(const SizeGroup &,
-			const FileGroup &, const FileGroup &) = NULL) throw();
+			const FileGroup &, const FileGroup &) = NULL)
+		throw(std::bad_alloc);
 };
 
 #endif // AK_HOLDER_H

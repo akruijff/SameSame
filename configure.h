@@ -2,9 +2,9 @@
 #ifndef AK_CONFIGURE_H
 #define AK_CONFIGURE_H
 
-// #define WITH_LOGIC
+// #define WITHOUT_LOGIC
 // #define WITH_DISK_STORAGE
-// #define WITH_MMAP
+// #define HAVE_MMAP
 // #define DEBUG
 
 #ifndef TEMP_STORAGE_DIR
